@@ -6,8 +6,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpServerCodec;
 
 public class ReverseProxyServer {
 
@@ -32,9 +30,7 @@ public class ReverseProxyServer {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             var pipeline = socketChannel.pipeline();
 
-                            pipeline.addLast(new HttpServerCodec())
-                                    .addLast(new HttpObjectAggregator(1024))
-                                    .addLast(new ProxyHandler(ReverseProxyServer.this));
+                            pipeline.addLast(new ReverseProxyHandler(ReverseProxyServer.this));
                         }
                     })
                     .bind(port).sync().channel().closeFuture().sync();
