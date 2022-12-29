@@ -1,15 +1,17 @@
-package me.code;
+package me.code.proxy;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import me.code.NodeHandler;
+import me.code.balancer.RoundRobinBalancer;
 
 import java.util.Scanner;
 
 public class ReverseProxyServer {
+
+    private final NodeHandler nodeHandler;
 
     private final int port;
     private final EventLoopGroup bossGroup, workerGroup;
@@ -18,6 +20,7 @@ public class ReverseProxyServer {
         this.port = port;
         this.bossGroup = new NioEventLoopGroup();
         this.workerGroup = new NioEventLoopGroup();
+        this.nodeHandler = new NodeHandler(this, new RoundRobinBalancer());
     }
 
     public void start() {
@@ -27,21 +30,16 @@ public class ReverseProxyServer {
             var channel = bootstrap
                     .group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        protected void initChannel(SocketChannel socketChannel) throws Exception {
-                            var pipeline = socketChannel.pipeline();
-
-                            pipeline.addLast(new ReverseProxyHandler(ReverseProxyServer.this));
-                        }
-                    })
+                    .childHandler(new ReverseProxyInitializer(this))
                     .bind(port).sync().channel();
 
             var scanner = new Scanner(System.in);
 
             while (!scanner.nextLine().equals("exit")) {}
 
+            nodeHandler.closeAll();
             channel.close();
+
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
 
@@ -52,5 +50,9 @@ public class ReverseProxyServer {
 
     public EventLoopGroup getWorkerGroup() {
         return workerGroup;
+    }
+
+    public NodeHandler getNodeHandler() {
+        return nodeHandler;
     }
 }
