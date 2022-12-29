@@ -7,6 +7,8 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
+import java.util.Scanner;
+
 public class ReverseProxyServer {
 
     private final int port;
@@ -22,7 +24,7 @@ public class ReverseProxyServer {
         var bootstrap = new ServerBootstrap();
 
         try {
-            bootstrap
+            var channel = bootstrap
                     .group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -33,7 +35,15 @@ public class ReverseProxyServer {
                             pipeline.addLast(new ReverseProxyHandler(ReverseProxyServer.this));
                         }
                     })
-                    .bind(port).sync().channel().closeFuture().sync();
+                    .bind(port).sync().channel();
+
+            var scanner = new Scanner(System.in);
+
+            while (!scanner.nextLine().equals("exit")) {}
+
+            channel.close();
+            bossGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
 
         } catch (Exception e) {
             e.printStackTrace();

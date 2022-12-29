@@ -8,14 +8,11 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-
 public class ReverseProxyHandler extends SimpleChannelInboundHandler<ByteBuf> {
 
     private final ReverseProxyServer server;
 
-    public static List<Integer> PORTS = List.of(8080, 8081);
+//    public static List<Integer> PORTS = List.of(8080, 8081);
 
     public ReverseProxyHandler(ReverseProxyServer server) {
         this.server = server;
@@ -28,8 +25,10 @@ public class ReverseProxyHandler extends SimpleChannelInboundHandler<ByteBuf> {
 
         var bootstrap = new Bootstrap();
 
-        var random = ThreadLocalRandom.current().nextInt(0, PORTS.size());
-        var port = PORTS.get(random);
+        var node = NodeHandler.getInstance().next();
+
+//        var random = ThreadLocalRandom.current().nextInt(0, PORTS.size());
+//        var port = PORTS.get(random);
 
         try {
             var channel  = bootstrap
@@ -44,7 +43,7 @@ public class ReverseProxyHandler extends SimpleChannelInboundHandler<ByteBuf> {
 
                         }
                     })
-                    .connect("localhost", port).sync().channel();
+                    .connect("localhost", node.getPort()).sync().channel();
 
             channel.writeAndFlush(buf.copy());
 

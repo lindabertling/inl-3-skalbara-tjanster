@@ -23,12 +23,11 @@ public class Node {
                 "java",
                 "-jar",
                 "spring.jar",
-                "--server.port" + port
+                "--server.port=" + port
         };
 
         this.process = Runtime
                 .getRuntime().exec(args);
-
     }
 
     public void stop() {
