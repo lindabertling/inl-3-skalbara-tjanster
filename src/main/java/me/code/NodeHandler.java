@@ -7,14 +7,17 @@ import me.code.balancer.LoadBalancer;
 import me.code.client.NodeStartupInitializer;
 import me.code.proxy.ReverseProxyServer;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class NodeHandler {
 
     private final ReverseProxyServer server;
     private final LoadBalancer balancer;
 
+    private final ReentrantReadWriteLock lock;
     private boolean alive = true;
 
     private int portCounter;
@@ -30,6 +33,7 @@ public class NodeHandler {
         this.activeNodes = new ArrayList<>();
         this.closingQueue = new ArrayList<>();
         this.startingQueue = new ArrayList<>();
+        this.lock = new ReentrantReadWriteLock();
         this.minimumNodeCount = 2;
 
         this.start(minimumNodeCount);
@@ -44,23 +48,32 @@ public class NodeHandler {
             try {
                 node.start();
                 System.out.println("Starting: " + node.getProcess().pid());
-
-            } catch (Exception e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
     public Node next() {
-        return balancer.next(activeNodes);
+        try {
+            lock.readLock().lock();
+            return balancer.next(activeNodes);
+        } finally {
+            lock.readLock().unlock();
+        }
+
     }
 
     public void addStartedNode(Node node) {
         try {
+            lock.writeLock().lock();
+
             startingQueue.remove(node);
             activeNodes.add(node);
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            lock.writeLock().unlock();
         }
     }
 
@@ -126,10 +139,16 @@ public class NodeHandler {
         closingQueue.add(node);
     }
     public void closeAll() {
-        alive = false;
-        activeNodes.forEach(Node::stop);
-        closingQueue.forEach(Node::stop);
-        startingQueue.forEach(Node::stop);
+        try {
+            lock.writeLock().lock();
+            alive = false;
+            activeNodes.forEach(Node::stop);
+            closingQueue.forEach(Node::stop);
+            startingQueue.forEach(Node::stop);
+        } finally {
+            lock.writeLock().unlock();
+        }
+
     }
 
     private void startThread() {
@@ -140,6 +159,7 @@ public class NodeHandler {
 
     private void runThread() {
         try {
+            lock.writeLock().lock();
             if (!alive) {
                 return;
             }
@@ -147,6 +167,8 @@ public class NodeHandler {
             checkup();
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            lock.writeLock().unlock();
         }
 
         try {

@@ -6,10 +6,12 @@ import lombok.Getter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Getter
 public class Node {
 
+    private final ReentrantReadWriteLock lock;
     private final int port;
     private Process process;
     private int requests;
@@ -19,6 +21,7 @@ public class Node {
         this.port = port;
         this.requests = 0;
         this.connections = new ArrayList<>();
+        this.lock = new ReentrantReadWriteLock();
     }
 
     public void start() throws IOException {
@@ -38,24 +41,47 @@ public class Node {
             return;
         }
 
-        process.destroy();
+        process.destroyForcibly();
         System.out.println("Node destroyed: " + process.pid());
         process = null;
     }
 
     public void addRequest() {
-        this.requests++;
+        try {
+            lock.writeLock().lock();
+            this.requests++;
+        } finally {
+            lock.writeLock().unlock();
+        }
+
     }
 
     public void addConnection(Channel channel) {
-        this.connections.add(channel);
+        try {
+            lock.writeLock().lock();
+            this.connections.add(channel);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     public void removeConnection(Channel channel) {
-        this.connections.remove(channel);
+        try {
+            lock.writeLock().lock();
+            this.connections.remove(channel);
+        } finally {
+            lock.writeLock().unlock();
+        }
+
     }
 
     public void resetRequests() {
-        this.requests = 0;
+        try {
+            lock.writeLock().lock();
+            this.requests = 0;
+        } finally {
+            lock.writeLock().unlock();
+        }
+
     }
 }
